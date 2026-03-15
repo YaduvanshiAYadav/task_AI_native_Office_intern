@@ -408,3 +408,49 @@ body {
 .grid-scroll::-webkit-scrollbar-thumb:hover {
   background: #bdc1c6;
 }
+.header-menu-container {
+  position: relative;
+  display: inline-block;
+  margin-left: 5px;
+  
+}
+
+.menu-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 12px;
+  color: #5f6368
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+  min-width: 150px;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.menu-item {
+  padding: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: #333;
+}
+
+.menu-item:hover {
+  background: #f0f0f0;
+}
+
+.filter-input {
+  width: 90%;
+  padding: 5px;
+  margin-top: 5px;
+  border: 1px solid #ddd;
+} 
