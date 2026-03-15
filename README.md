@@ -1,153 +1,23 @@
-# SpreadsheetApp
+## 🚀 Assignment Tasks Implementation
 
-A modern web application built with React and Vite for creating and managing spreadsheets.
+I have successfully implemented all three core tasks as per the internship requirements:
 
-## Prerequisites
+### 1. Advanced Sorting & Filtering
+- **Functionality:** Added a dropdown menu (▼) in each column header.
+- **Sorting:** Supports Ascending (A-Z) and Descending (Z-A) order.
+- **Filtering:** Integrated a real-time search box within the header menu to filter rows based on specific column values.
+- **Technical Detail:** Implemented sorting and filtering at the view-layer using `useMemo` to ensure that underlying formula references remain stable.
 
-Before you begin, ensure you have the following installed on your system:
+### 2. Multi-Cell Copy-Paste
+- **Range Support:** Supports copying ranges from external tools like Excel/Google Sheets and pasting them directly into the grid.
+- **Logic:** Implemented a tab-delimited parser in `handlePaste` that maps clipboard data into multiple engine cells starting from the selected anchor.
 
-- **Node.js** (version 18 or higher) - [Download](https://nodejs.org/)
-- **npm** (comes with Node.js) or **yarn**
-- **Git** - [Download](https://git-scm.com/)
+### 3. Data Persistence (Auto-Save)
+- **Local Storage:** The entire spreadsheet state (cell values + formatting) is saved automatically to the browser's `localStorage`.
+- **Restoration:** On page refresh, data is reconstructed into the engine using a custom-built restoration logic that ensures zero data loss.
+- **Error Handling:** Built a fail-safe iteration method to bypass `Object.fromEntries` limitations, ensuring the app never crashes during the save cycle.
 
-## Getting Started
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/tauhidst07/spreadhsheet.git
-cd SpreadsheetApp
-```
-
-### 2. Install Dependencies
-
-Install all required project dependencies:
-
-```bash
-npm install
-```
-
-Or if you prefer yarn:
-
-```bash
-yarn install
-```
-
-### 3. Run Development Server
-
-Start the development server with hot module replacement (HMR):
-
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:5173`
-
-### 4. Build for Production
-
-Create an optimized production build:
-
-```bash
-npm run build
-```
-
-The build output will be in the `dist/` directory.
-
-### 5. Preview Production Build
-
-Preview the production build locally:
-
-```bash
-npm run preview
-```
-
-### 6. Lint Code
-
-Run ESLint to check for code quality issues:
-
-```bash
-npm run lint
-```
-
-## Project Structure
-
-```
-SpreadsheetApp/
-├── src/
-│   ├── App.jsx           # Main React component
-│   ├── App.css           # Application styles
-│   ├── main.jsx          # Application entry point
-│   ├── index.css         # Global styles
-│   ├── assets/           # Static assets (images, icons, etc.)
-│   └── engine/           # Core application logic
-│       └── core.js       # Engine core functionality
-├── public/               # Static files served as-is
-├── package.json          # Project dependencies and scripts
-├── vite.config.js        # Vite configuration
-├── eslint.config.js      # ESLint configuration
-├── index.html            # HTML entry point
-└── README.md             # This file
-```
-
-## Technologies Used
-
-- **React** - A JavaScript library for building user interfaces
-- **Vite** - A next-generation frontend build tool
-- **ESLint** - JavaScript linting utility
-- **CSS** - Styling and layout
-
-## Available Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start the development server with hot reload |
-| `npm run build` | Build the application for production |
-| `npm run preview` | Preview the production build locally |
-| `npm run lint` | Run ESLint to check code quality |
-
-## Development Workflow
-
-1. Create a new branch for your feature:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. Make your changes and ensure the code passes linting:
-   ```bash
-   npm run lint
-   ```
-
-3. Commit your changes:
-   ```bash
-   git commit -m "Add description of your changes"
-   ```
-
-4. Push to your fork and create a Pull Request
-
-## Browser Support
-
-This application works on all modern browsers that support ES2020+ JavaScript:
-
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
-
-## Troubleshooting
-
-### Dependencies won't install
-- Clear npm cache: `npm cache clean --force`
-- Delete `node_modules` and `package-lock.json`, then reinstall: `rm -rf node_modules package-lock.json && npm install`
-
-### Port 5173 already in use
-- The dev server will automatically try the next available port
-- Or specify a custom port: `npm run dev -- --port 3000`
-
-### Build fails
-- Ensure all dependencies are installed: `npm install`
-- Clear any build cache: `rm -rf dist`
-- Try rebuilding: `npm run build`
-
-
-
-# task_AI_native_Office_intern
+## 🎨 UI Enhancements
+- **Excel-inspired Headers:** Dropdown buttons match the cell background for a clean, professional look.
+- **Active States:** Bold, Italic, and Alignment buttons show active states based on the selected cell's properties. 
+- **Responsive Grid:** Optimized for smooth scrolling with a large number of rows and columns.
