@@ -1,23 +1,64 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import './App.css'
 import { createEngine } from './engine/core.js'
 
 const TOTAL_ROWS = 50
 const TOTAL_COLS = 50
 
+
 export default function App() {
   // Engine instance is created once and reused across renders
   // Note: The engine maintains its own internal state, so React state is only used for UI updates
-  const [engine] = useState(() => createEngine(TOTAL_ROWS, TOTAL_COLS))
+  useEffect(() => {
+  localStorage.setItem('test_key', 'working');
+  console.log("TEST: LocalStorage Check ->", localStorage.getItem('test_key'));
+}, []);
+  const [engine] = useState(() => {
+    const e = createEngine(TOTAL_ROWS, TOTAL_COLS);
+    const savedData = localStorage.getItem('spreadsheet_persistence');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        if (parsed.cells) {
+          Object.entries(parsed.cells).forEach(([key, cellData]) => {
+            const [r, c] = key.split(',').map(Number);
+            const value = (cellData && typeof cellData === 'object') ? cellData.raw : cellData;
+            e.setCell(r, c, value);
+          });
+        }
+      } catch (err) {
+        console.error("Restoration Error:", err);
+      }
+    }
+    return e;
+  });
+  const [cellStyles, setCellStyles] = useState(() => {
+    const savedData = localStorage.getItem('spreadsheet_persistence');
+    // Pehle check karo ki data hai ya nahi
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        return (parsed && parsed.styles) ? parsed.styles : {};
+      } catch (err) {
+        console.error("Styles restoration failed:", err);
+        return {}; 
+      }
+    }
+    return {};
+  });
   const [version, setVersion] = useState(0)
   const [selectedCell, setSelectedCell] = useState(null)
   const [editingCell, setEditingCell] = useState(null)
   const [editValue, setEditValue] = useState('')
   // Cell styles are stored separately from engine data
   // Format: { "row,col": { bold: bool, italic: bool, ... } }
-  const [cellStyles, setCellStyles] = useState({})
-  const cellInputRef = useRef(null)
+  const [activeMenu, setActiveMenu] = useState(null);
 
+  const [sortConfig, setSortConfig] = useState({col: null, direction: 'none'});
+  const [filters, setFilters] =useState({});
+
+  // const [cellStyles, setCellStyles] = useState({})
+  const cellInputRef = useRef(null)
   const forceRerender = useCallback(() => setVersion(v => v + 1), [])
 
   // ────── Cell style helpers ──────
@@ -48,15 +89,37 @@ export default function App() {
     setTimeout(() => cellInputRef.current?.focus(), 0)
   }, [engine])
 
+  const saveSpreadsheetData = useCallback(() => {
+    try {
+      const allCells = {};
+      // Error-proof loop: Engine ke har cell ko manually uthao
+      for (let r = 0; r < engine.rows; r++) {
+        for (let c = 0; c < engine.cols; c++) {
+          const cell = engine.getCell(r, c);
+          if (cell && cell.raw !== "") {
+            allCells[`${r},${c}`] = cell;
+          }
+        }
+      }
+      const dataToSave = { cells: allCells, styles: cellStyles };
+      localStorage.setItem('spreadsheet_persistence', JSON.stringify(dataToSave));
+      console.log("Data saved successfully!");
+    } catch (err) {
+      console.error("Save Error:", err);
+    }
+  }, [engine, cellStyles]);
+
+
   const commitEdit = useCallback((row, col) => {
-    // Only commit if the value actually changed to avoid unnecessary recalculations
     const currentCell = engine.getCell(row, col)
+
     if (currentCell.raw !== editValue) {
       engine.setCell(row, col, editValue)
-      forceRerender()
+      setVersion(v => v + 1)
+      saveSpreadsheetData();
     }
     setEditingCell(null)
-  }, [engine, editValue, forceRerender])
+  }, [engine, editValue, saveSpreadsheetData]);
 
   const handleCellClick = useCallback((row, col) => {
     if (editingCell && (editingCell.r !== row || editingCell.c !== col)) {
@@ -103,6 +166,44 @@ export default function App() {
       startEditing(row, Math.min(col + 1, engine.cols - 1))
     }
   }, [engine, commitEdit, startEditing])
+
+  //for paste
+  const handlePaste = useCallback((e) => {
+    
+    if (!selectedCell) return;
+    
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    
+    // Rows split 
+    const rows = text.split(/\r?\n/).filter(row => row.length > 0);
+    
+    rows.forEach((rowText, rOffset) => {
+      const columns = rowText.split('\t');
+      columns.forEach((cellValue, cOffset) => {
+        const targetRow = selectedCell.r + rOffset;
+        const targetCol = selectedCell.c + cOffset;
+
+        // Boundary check: 
+        if (targetRow < engine.rows && targetCol < engine.cols) {
+          engine.setCell(targetRow, targetCol, cellValue);
+        }
+      });
+    });
+
+    setVersion(v => v + 1);
+  }, [selectedCell, engine]);
+
+  //paste
+  const handleCopy = useCallback((e) => {
+    if (!selectedCell) return;
+    
+    const cellData = engine.getCell(selectedCell.r, selectedCell.c);
+    const valueToCopy = cellData.error ? cellData.error : String(cellData.computed ?? cellData.raw ?? '');
+    
+    e.clipboardData.setData('text/plain', valueToCopy);
+    e.preventDefault();
+  }, [selectedCell, engine]);
 
   // ────── Formula bar handlers ──────
 
@@ -245,6 +346,43 @@ export default function App() {
     }
     return label
   }, [])
+  
+  const handleHeaderClick = useCallback((colIndex) =>{
+    console.log("Header clicked", colIndex);
+    setSortConfig(prev =>{
+      if(prev.col !== colIndex || prev.direction==='none') return {col: colIndex, direction: 'asc'};
+      if(prev.direction === 'asc') return {col: colIndex, direction: 'desc'};
+      return {col: null, direction:'none'};
+    });
+  }, []);
+
+  const displayIndices = useMemo(() =>{
+    if(!engine) return[];
+    let indices = Array.from({length: engine.rows}, (_, i) => i);
+    Object.keys(filters).forEach(colIndex =>{
+      const query = filters[colIndex].toLowerCase();
+      if(query){
+        indices =indices.filter(rowIndex =>{
+          const cell = engine.getCell(rowIndex, parseInt(colIndex));
+          const val = String(cell.computed ?? cell.raw).toLowerCase();
+          return val.includes(query);
+        });
+      }
+    });
+    if(sortConfig.col !== null && sortConfig.direction !== 'none'){
+      indices.sort((a, b) =>{
+        const valA = engine.getCell(a, sortConfig.col).computed ?? '';
+        const valB = engine.getCell(b, sortConfig.col).computed ?? '';
+        if(valA === valB) return 0;
+        const comparison = valA < valB ? -1 : 1;
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      });
+    }
+    return indices;
+  }, [engine, sortConfig, filters, version]);
+
+
+
 
   const selectedCellLabel = selectedCell
     ? `${getColumnLabel(selectedCell.c)}${selectedCell.r + 1}`
@@ -254,7 +392,7 @@ export default function App() {
   // When editing, show the current editValue; otherwise show the cell's raw content
   // Note: This is different from the cell display, which shows computed values
   const formulaBarValue = editingCell
-    ? editValue
+    ? editValue 
     : (selectedCell ? engine.getCell(selectedCell.r, selectedCell.c).raw : '')
 
   // ────── Render ──────
@@ -347,7 +485,11 @@ export default function App() {
         </div>
 
         {/* ── Grid ── */}
-        <div className="grid-scroll">
+        <div className="grid-scroll"
+        onPaste={handlePaste}
+        onCopy={handleCopy}
+        tabIndex={0}
+        >
           <table className="grid-table">
             <thead>
               <tr>
@@ -355,12 +497,47 @@ export default function App() {
                 {Array.from({ length: engine.cols }, (_, colIndex) => (
                   <th key={colIndex} className="col-header">
                     {getColumnLabel(colIndex)}
+                    <div className="header-menu-container">
+                      <button className="menu-button" onClick={() => setActiveMenu(activeMenu === colIndex ? null : colIndex)}>
+                        ▼
+                      </button>
+
+                      {activeMenu === colIndex &&(
+                        <div className="dropdown-menu">
+                          <div className="menu-item" onClick={() => {setSortConfig({col: colIndex, direction: 'asc'}); setActiveMenu(null); }}>
+                            Sort A toge Z ↑
+                          </div>
+                          <div className="menu-item" onClick={() => {setSortConfig({col: colIndex, direction: 'desc'}); setActiveMenu(null); }}>
+                            Sort Z to A ↓
+                          </div>
+                          <div className="menu-item" onClick={() => {setSortConfig({col: colIndex, direction: 'none'}); setActiveMenu(null); }}>
+                            Clear Sort
+                          </div>
+                          <hr/>
+                          <div style={{padding: '5px'}}>
+                            <label style={{ fontSize: '11px', color: '#666' }}>Filter:</label>
+                            <input 
+                              className="filter-input"
+                              placeholder="Type to filter..."
+                              value={filters[colIndex] || ''}
+                              onChange={(e) => {
+                                setFilters({ ...filters, [colIndex]: e.target.value });
+                                setVersion(v => v + 1); // Rerender logic
+                              }}
+                              onClick={(e) => e.stopPropagation()} // Input par click se menu band na ho
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: engine.rows }, (_, rowIndex) => (
+              
+              {displayIndices.map((rowIndex) =>(
                 <tr key={rowIndex}>
                   <td className="row-header">{rowIndex + 1}</td>
                   {Array.from({ length: engine.cols }, (_, colIndex) => {
